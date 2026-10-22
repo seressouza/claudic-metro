@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
+<title>Claudicômetro DAOP</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Source+Sans+3:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: uma coluna de bolso (máx. 560px), cabeçalho fixo com abas Quiz/Cartões; a "pista" de metros caminhados é a barra de progresso */
+:root{
+  --bg:#f3f5f6;
+  --surface:#ffffff;
+  --ink:#16222b;
+  --muted:#5b6b75;
+  --line:#dbe2e6;
+  --accent:#0d6b73;      /* verde-petróleo clínico */
+  --accent-soft:#e0f0f0;
+  --artery:#b8323f;      /* vermelho arterial: erro / dor */
+  --artery-soft:#f8e4e5;
+  --ok:#1d7f55;
+  --ok-soft:#e1f2e9;
+  --track:#e6ecef;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f161b; --surface:#172129; --ink:#e7eef1; --muted:#9aabb4; --line:#2a3741;
+    --accent:#4fb9bf; --accent-soft:#163238; --artery:#ef7d86; --artery-soft:#3a1d22;
+    --ok:#5fcf98; --ok-soft:#163027; --track:#22303a; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f161b; --surface:#172129; --ink:#e7eef1; --muted:#9aabb4; --line:#2a3741;
+  --accent:#4fb9bf; --accent-soft:#163238; --artery:#ef7d86; --artery-soft:#3a1d22;
+  --ok:#5fcf98; --ok-soft:#163027; --track:#22303a; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 40px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.head{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 0}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:1.45rem;letter-spacing:-.01em;margin:0}
+h1 span{color:var(--accent)}
+.course{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
+.tabs{display:flex;gap:4px;margin-top:10px}
+.tab{flex:1;appearance:none;border:0;background:none;font:600 .98rem var(--body);color:var(--muted);padding:10px 4px 12px;border-bottom:3px solid transparent;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab:focus-visible,button:focus-visible,.card:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* pista de metros */
+.trackbox{margin:18px 0 6px}
+.trackmeta{display:flex;justify-content:space-between;font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.trackmeta b{color:var(--ink);font-weight:700}
+.track{position:relative;height:12px;background:var(--track);border-radius:6px;margin-top:6px;overflow:hidden}
+.track i{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);border-radius:6px;transition:width .4s ease}
+.ticks{display:flex;justify-content:space-between;font-size:.72rem;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums}
+
+.qcard{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 18px;margin-top:14px}
+.qtopic{font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);font-weight:700}
+.qtext{font-family:var(--display);font-weight:700;font-size:1.25rem;line-height:1.3;margin:6px 0 16px;text-wrap:balance}
+.opts{display:grid;gap:10px}
+.opt{appearance:none;text-align:left;width:100%;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:500 1rem/1.4 var(--body);padding:13px 14px;border-radius:12px;cursor:pointer;display:flex;gap:12px;align-items:flex-start;min-height:52px}
+.opt:hover:not([disabled]){border-color:var(--accent)}
+.opt .k{flex:none;width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-weight:700;font-size:.85rem;color:var(--muted)}
+.opt[disabled]{cursor:default}
+.opt.right{border-color:var(--ok);background:var(--ok-soft)}
+.opt.right .k{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.opt.wrong{border-color:var(--artery);background:var(--artery-soft)}
+.opt.wrong .k{background:var(--artery);border-color:var(--artery);color:var(--surface)}
+.opt.dim{opacity:.55}
+
+.fb{margin-top:16px;border-radius:12px;padding:14px;border-left:4px solid var(--ok);background:var(--ok-soft)}
+.fb.no{border-left-color:var(--artery);background:var(--artery-soft)}
+.fb strong{display:block;font-family:var(--display);font-size:1.05rem;margin-bottom:4px}
+.fb p{margin:0}
+.ref{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);font-size:.8rem;color:var(--muted)}
+.ref b{color:var(--ink);font-weight:600}
+
+.row{display:flex;gap:10px;margin-top:16px}
+.btn{appearance:none;flex:1;border:0;border-radius:12px;padding:14px 16px;font:700 1rem var(--body);cursor:pointer;background:var(--accent);color:var(--surface);min-height:50px}
+.btn.ghost{background:transparent;color:var(--ink);border:1.5px solid var(--line)}
+.btn[disabled]{opacity:.4;cursor:default}
+
+/* resultado */
+.result{text-align:center}
+.big{font-family:var(--display);font-weight:800;font-size:3.4rem;line-height:1;color:var(--accent);font-variant-numeric:tabular-nums;margin:8px 0 2px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:18px 0}
+.stat{border:1px solid var(--line);border-radius:12px;padding:10px 6px}
+.stat b{display:block;font-family:var(--display);font-size:1.4rem;font-variant-numeric:tabular-nums}
+.stat span{font-size:.78rem;color:var(--muted)}
+.review{text-align:left;margin-top:8px}
+.review h3{font-family:var(--display);font-size:1.05rem;margin:18px 0 8px}
+.review li{margin-bottom:10px}
+.review ul{padding-left:18px;margin:0}
+
+/* cartões */
+.filters{display:flex;gap:8px;overflow-x:auto;padding:16px 0 4px;scrollbar-width:none}
+.chip{appearance:none;flex:none;border:1.5px solid var(--line);background:var(--surface);color:var(--muted);font:600 .88rem var(--body);padding:7px 13px;border-radius:999px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.cardwrap{perspective:1200px;margin-top:12px}
+.card{position:relative;min-height:340px;cursor:pointer;transform-style:preserve-3d;transition:transform .5s cubic-bezier(.2,.7,.2,1);border-radius:18px}
+.card.flip{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;border:1px solid var(--line);background:var(--surface);padding:22px 20px;display:flex;flex-direction:column;overflow:auto}
+.front{justify-content:center;text-align:center}
+.front .term{font-family:var(--display);font-weight:800;font-size:1.8rem;line-height:1.15;text-wrap:balance;margin:10px 0}
+.front .hint{color:var(--muted);font-size:.9rem;margin-top:auto}
+.back{transform:rotateY(180deg)}
+.back .bt{font-family:var(--display);font-weight:700;font-size:1.1rem;margin-bottom:8px;color:var(--accent)}
+.back ul{margin:0;padding-left:18px}
+.back li{margin-bottom:6px}
+.back table{border-collapse:collapse;width:100%;font-size:.92rem}
+.back td,.back th{border-bottom:1px solid var(--line);padding:5px 4px;text-align:left;vertical-align:top}
+.back th{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.back .ref{margin-top:auto}
+.count{display:flex;justify-content:space-between;align-items:center;font-size:.85rem;color:var(--muted);margin-top:10px;font-variant-numeric:tabular-nums}
+.pill{font-size:.75rem;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent)}
+.pill.rev{background:var(--artery-soft);color:var(--artery)}
+.intro{color:var(--muted);font-size:.95rem;margin:14px 0 0}
+@media (prefers-reduced-motion: reduce){.card,.track i{transition:none}}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="head">
+    <div class="brand">
+      <h1>Claudicô<span>metro</span></h1>
+      <div class="course">ICSC16 · DAOP</div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tab-quiz" role="tab" aria-selected="true" aria-controls="quiz">Quiz</button>
+      <button class="tab" id="tab-cards" role="tab" aria-selected="false" aria-controls="cards">Cartões de estudo</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="quiz" role="tabpanel" aria-labelledby="tab-quiz">
+    <div class="trackbox" id="trackbox">
+      <div class="trackmeta"><span>Questão <b id="qn">1</b> de <b id="qt">16</b></span><span>Caminhou <b id="meters">0</b> m · <b id="stops">0</b> paradas por dor</span></div>
+      <div class="track" aria-hidden="true"><i id="bar"></i></div>
+      <div class="ticks" aria-hidden="true"><span>0 m</span><span>200 m</span><span>400 m</span><span>600 m</span><span id="maxm">800 m</span></div>
+    </div>
+    <div id="qbox"></div>
+  </section>
+
+  <section id="cards" role="tabpanel" aria-labelledby="tab-cards" hidden>
+    <p class="intro">Toque no cartão para virar. Marque "Revisar" o que ainda não está firme e filtre depois.</p>
+    <div class="filters" id="filters"></div>
+    <div class="cardwrap"><div class="card" id="card" tabindex="0" role="button" aria-label="Virar cartão"><div class="face front" id="front"></div><div class="face back" id="back"></div></div></div>
+    <div class="count"><span id="ccount"></span><span id="cmark"></span></div>
+    <div class="row">
+      <button class="btn ghost" id="prev">Anterior</button>
+      <button class="btn ghost" id="mark">Revisar</button>
+      <button class="btn" id="next">Próximo</button>
+    </div>
+  </section>
+</main>
+
+<script>
+const STEP = 50; // metros por acerto
+
+const Q = [
+ {t:"Diagnóstico", q:"Um paciente tem ITB de 0,88. Como você classifica?", o:["Normal","Limítrofe","Anormal: DAOP","Não compressível"], a:2,
+  e:"ITB ≤ 0,90 já é anormal e fecha o diagnóstico de DAOP. Limítrofe é 0,91–0,99; normal, 1,00–1,40; acima de 1,40, não compressível.", r:"Gornik et al., ACC/AHA 2024"},
+ {t:"Diagnóstico", q:"Diabético com doença renal crônica, ITB de 1,52. Qual o próximo passo?", o:["Concluir que não tem DAOP","Medir o índice hálux-braquial","Repetir o ITB no dia seguinte","Pedir apenas TC6M"], a:1,
+  e:"ITB > 1,40 indica artéria calcificada, não compressível: o número não é confiável. O índice hálux-braquial ≤ 0,70 confirma DAOP.", r:"Gornik et al., ACC/AHA 2024"},
+ {t:"Quadro clínico", q:"Na DAOP, \"claudicação intermitente\" significa:", o:["Marcha assimétrica, o paciente manca","Dor muscular reprodutível ao caminhar que alivia em minutos com repouso","Dor no pé em repouso, pior à noite","Fraqueza súbita da perna"], a:1,
+  e:"O nome vem do latim claudicare (mancar), mas o que define o quadro vascular é a dor isquêmica de esforço que some ao parar. Dor em repouso já é CLTI.", r:"Treat-Jacobson et al., AHA 2019"},
+ {t:"História natural", q:"Em 5 anos, o que é MAIS provável num paciente com claudicação intermitente?", o:["Amputação maior","Evoluir para isquemia crítica","IAM ou AVC","Cura espontânea"], a:2,
+  e:"IAM ou AVC atinge cerca de 20% em 5 anos; amputação, só 1–3%. A claudicação é marcador de aterosclerose sistêmica: o fisioterapeuta também faz prevenção secundária.", r:"Norgren et al., TASC II 2007"},
+ {t:"Classificações", q:"Claudicação que aparece antes de 200 m corresponde a:", o:["Fontaine I","Fontaine IIa","Fontaine IIb","Fontaine III"], a:2,
+  e:"Fontaine IIa: distância > 200 m. IIb: < 200 m. III: dor em repouso. IV: úlcera ou gangrena.", r:"Norgren et al., TASC II 2007"},
+ {t:"Classificações", q:"Úlcera que não cicatriza com gangrena focal no pé é Rutherford:", o:["3","4","5","6"], a:2,
+  e:"Rutherford 4 = dor em repouso; 5 = perda tecidual menor; 6 = perda tecidual maior (acima do nível transmetatarsiano). 4 a 6 = CLTI.", r:"Norgren et al., TASC II 2007"},
+ {t:"CLTI", q:"Qual a definição de isquemia crônica ameaçadora do membro (CLTI)?", o:["ITB < 0,40, mesmo sem sintomas","DAOP + dor em repouso, gangrena ou úlcera há mais de 2 semanas","Dor súbita, palidez e ausência de pulso","Claudicação antes de 50 m"], a:1,
+  e:"Definição das Diretrizes Vasculares Globais 2019. Dor súbita com palidez e sem pulso é isquemia AGUDA (< 2 semanas), uma emergência diferente.", r:"Conte et al., GVG 2019"},
+ {t:"Quadro clínico", q:"Dor na nádega e na coxa ao caminhar sugere obstrução em qual segmento?", o:["Aortoilíaco","Femoropoplíteo","Infrapoplíteo","Venoso profundo"], a:0,
+  e:"A dor aparece no músculo abaixo da obstrução: nádega/coxa → aortoilíaco; panturrilha → femoropoplíteo (o mais comum); pé → infrapoplíteo.", r:"Treat-Jacobson et al., AHA 2019"},
+ {t:"Diferencial", q:"Qual achado aponta para claudicação NEUROGÊNICA (estenose lombar)?", o:["Dor na panturrilha que alivia ao ficar parado em pé","Alívio ao sentar ou ao fletir o tronco (sinal do carrinho)","Pulso pedioso ausente","ITB de 0,70"], a:1,
+  e:"Sintomas acima do joelho, que surgem até parado em pé e aliviam ao sentar ou inclinar o tronco, favorecem estenose lombar. A dor vascular alivia só de parar, em pé mesmo.", r:"Can J Surg 2013;56:372"},
+ {t:"Avaliação", q:"No protocolo de esteira de Gardner-Skinner:", o:["Velocidade sobe 1 km/h a cada minuto","3,2 km/h fixos e inclinação sobe 2% a cada 2 min","Inclinação fixa de 12% por 5 min","O paciente escolhe a velocidade"], a:1,
+  e:"2 mph (3,2 km/h) constantes, começando em 0% e subindo 2% a cada 2 minutos até a dor máxima. É mais reprodutível que o teste de carga constante.", r:"Gardner et al., 1991"},
+ {t:"Avaliação", q:"Durante o teste de esteira, o paciente quer segurar no corrimão. Você:", o:["Permite, para dar segurança","Não permite, salvo se não conseguir manter o equilíbrio","Permite só no fim do teste","Tanto faz"], a:1,
+  e:"O apoio no corrimão reduz o gasto energético e aumenta as distâncias, o que estraga a comparação entre testes.", r:"Gardner & Skinner, 1991"},
+ {t:"Avaliação", q:"Qual ganho no TC6M representa uma mudança GRANDE e clinicamente importante na DAOP?", o:["~2 m","~8 m","~20 m","~100 m"], a:2,
+  e:"Cerca de 8 m é mudança pequena; cerca de 20 m, grande.", r:"McDermott et al., J Vasc Surg 2020"},
+ {t:"Prescrição", q:"Frequência e duração mínimas do treino supervisionado de marcha:", o:["1x/semana por 4 semanas","2x/semana por 8 semanas","≥ 3x/semana por ≥ 12 semanas","Diário por 2 semanas"], a:2,
+  e:"Pelo menos 3 sessões por semana durante pelo menos 12 semanas (36 sessões). O ganho grande no TC6M só aparece depois da 6ª semana.", r:"Gornik et al., ACC/AHA 2024"},
+ {t:"Prescrição", q:"Qual intensidade a AHA recomenda no treino de marcha?", o:["Caminhar sem nunca sentir dor","Dor leve em até 5 min e moderada a moderadamente intensa em até 10 min, depois parar até passar","Caminhar até a dor máxima sem parar","Correr em intervalos de 30 s"], a:1,
+  e:"Ciclos de caminhada até dor moderada (3 na escala de 1 a 5) e pausa até a dor sumir, somando 30–45 min de caminhada efetiva por sessão.", r:"Treat-Jacobson et al., AHA 2019"},
+ {t:"Evidência", q:"No ensaio LITE, o que aconteceu com quem caminhou em casa SEM sentir dor?", o:["Ganhou mais TC6M que o grupo com dor","Não melhorou o TC6M em relação ao controle","Teve mais amputações","Normalizou o ITB"], a:1,
+  e:"Com dor: TC6M +34,5 m. Sem dor: −6,4 m, sem diferença do controle. Por outro lado, o grupo sem dor relatou mais melhora subjetiva: discuta com o paciente.", r:"McDermott et al., JAMA 2021 (LITE)"},
+ {t:"Evidência", q:"Qual a força de recomendação da ACC/AHA 2024 para exercício alternativo sem caminhada (ex.: ergômetro de braço)?", o:["Classe 1, nível A","Classe 2a, nível A","Classe 3, sem benefício","Não é mencionado"], a:1,
+  e:"Treino supervisionado de marcha é Classe 1, nível A. Alternativas sem caminhada são Classe 2a, nível A: úteis quando andar não é possível.", r:"Gornik et al., ACC/AHA 2024"},
+ {t:"Conduta", q:"Na 6ª semana do programa, o paciente aparece com úlcera no hálux. O que fazer?", o:["Manter a esteira e fazer curativo","Aumentar a intensidade","Suspender o treino de marcha e encaminhar com urgência ao vascular","Trocar por corrida leve"], a:2,
+  e:"Úlcera nova sugere CLTI: suspende a marcha e encaminha com urgência. Se liberado, mantém ergômetro de braço.", r:"Conte et al., GVG 2019"},
+ {t:"Mecanismos", q:"Após 12 semanas, a DMC dobrou mas o ITB ficou igual. Isso significa:", o:["O treino falhou","O ITB foi medido errado","O ganho veio de endotélio, músculo e economia da marcha, não da abertura da estenose","O paciente deve ser revascularizado"], a:2,
+  e:"O exercício não costuma mudar o ITB. A melhora vem de função endotelial, colaterais e capilares, mitocôndrias e capacidade cardiorrespiratória.", r:"Lane et al., Cochrane 2017"}
+];
+
+const CARDS = [
+ {t:"Diagnóstico", f:"ITB", b:`<div class="bt">Índice tornozelo-braquial</div><p>Maior pressão do tornozelo ÷ maior pressão braquial.</p><table><tr><th>ITB</th><th>Leitura</th></tr><tr><td>≤ 0,90</td><td>Anormal: DAOP</td></tr><tr><td>0,91–0,99</td><td>Limítrofe</td></tr><tr><td>1,00–1,40</td><td>Normal</td></tr><tr><td>&gt; 1,40</td><td>Não compressível</td></tr></table>`, r:"Gornik et al., ACC/AHA 2024"},
+ {t:"Diagnóstico", f:"Índice hálux-braquial", b:`<div class="bt">Quando o ITB mente</div><ul><li>Usar se ITB &gt; 1,40 (calcificação: diabetes, DRC).</li><li>Pressão do hálux ÷ maior braquial.</li><li>≤ 0,70 = DAOP.</li></ul>`, r:"Gornik et al., ACC/AHA 2024"},
+ {t:"Quadro clínico", f:"Claudicação intermitente", b:`<div class="bt">Andar · doer · parar · passar</div><ul><li>Dor, cãibra ou fadiga muscular reprodutível ao caminhar.</li><li>Alivia em minutos com repouso, em pé mesmo.</li><li>Não é manqueira: é isquemia de esforço.</li><li>Só 10–35% dos pacientes têm o quadro típico.</li></ul>`, r:"Treat-Jacobson et al., AHA 2019"},
+ {t:"Quadro clínico", f:"CLTI", b:`<div class="bt">Isquemia crônica ameaçadora do membro</div><ul><li>DAOP + dor em repouso, gangrena ou úlcera &gt; 2 semanas.</li><li>Fontaine III–IV = Rutherford 4–6.</li><li>~30% de amputação em 1 ano.</li><li>Encaminhar com urgência. Estadiar com WIfI.</li></ul>`, r:"Conte et al., GVG 2019"},
+ {t:"Classificações", f:"Fontaine × Rutherford", b:`<table><tr><th>Fontaine</th><th>Rutherford</th><th>Clínica</th></tr><tr><td>I</td><td>0</td><td>Assintomático</td></tr><tr><td>IIa</td><td>1</td><td>Claudicação &gt; 200 m</td></tr><tr><td>IIb</td><td>2–3</td><td>Claudicação &lt; 200 m</td></tr><tr><td>III</td><td>4</td><td>Dor em repouso</td></tr><tr><td>IV</td><td>5–6</td><td>Úlcera / gangrena</td></tr></table>`, r:"Norgren et al., TASC II 2007"},
+ {t:"Quadro clínico", f:"Vascular × neurogênica", b:`<table><tr><th></th><th>Vascular</th><th>Neurogênica</th></tr><tr><td>Local</td><td>Panturrilha</td><td>Acima do joelho</td></tr><tr><td>Surge</td><td>Ao caminhar</td><td>Até parado em pé</td></tr><tr><td>Alivia</td><td>Parar, em pé</td><td>Sentar ou fletir o tronco</td></tr></table>`, r:"Can J Surg 2013;56:372"},
+ {t:"História natural", f:"O claudicante em 5 anos", b:`<ul><li>70–80% ficam estáveis.</li><li>20–30% pioram a claudicação.</li><li>1–3% evoluem para isquemia crítica.</li><li><strong>~20% têm IAM ou AVC.</strong></li><li>10–15% morrem.</li></ul><p>A perna raramente é o que mata.</p>`, r:"Norgren et al., TASC II 2007"},
+ {t:"Avaliação", f:"DIC e DMC", b:`<ul><li><strong>DIC</strong>: distância (ou tempo) até o início da dor.</li><li><strong>DMC</strong>: distância (ou tempo) até parar pela dor.</li><li>Medidas na esteira ou no TC6M.</li></ul>`, r:"Treat-Jacobson et al., AHA 2019"},
+ {t:"Avaliação", f:"Gardner-Skinner", b:`<ul><li>3,2 km/h fixos.</li><li>Começa em 0% e sobe 2% a cada 2 min.</li><li>Até a dor máxima.</li><li>Sem apoio no corrimão.</li></ul>`, r:"Gardner et al., 1991"},
+ {t:"Avaliação", f:"Escala de dor de claudicação", b:`<table><tr><td>1</td><td>Sem dor</td></tr><tr><td>2</td><td>Dor leve inicial</td></tr><tr><td>3</td><td>Moderada: alvo do treino</td></tr><tr><td>4</td><td>Submáxima</td></tr><tr><td>5</td><td>Máxima: para</td></tr></table>`, r:"Gardner et al., 1991"},
+ {t:"Avaliação", f:"TC6M na DAOP", b:`<ul><li>Andar o mais rápido possível por 6 min; se parar, o cronômetro segue.</li><li>Anote a distância total e a da primeira dor.</li><li>Mudança pequena ~8 m; grande ~20 m.</li></ul>`, r:"McDermott et al., J Vasc Surg 2020"},
+ {t:"Prescrição", f:"FITT do treino de marcha", b:`<table><tr><td><strong>F</strong></td><td>≥ 3x/semana, ≥ 12 semanas</td></tr><tr><td><strong>I</strong></td><td>Dor leve até 5 min, moderada até 10 min</td></tr><tr><td><strong>T</strong></td><td>30–45 min de caminhada efetiva</td></tr><tr><td><strong>T</strong></td><td>Caminhada intermitente, de preferência esteira</td></tr></table>`, r:"Treat-Jacobson et al., AHA 2019"},
+ {t:"Prescrição", f:"A sessão em ciclos", b:`<ul><li>Aquecer ~5 min.</li><li>Caminhar até dor 3/5.</li><li>Parar até a dor passar.</li><li>Repetir até somar o tempo-alvo.</li><li>Desaquecer ~5 min.</li></ul>`, r:"Treat-Jacobson et al., AHA 2019"},
+ {t:"Prescrição", f:"Quando não dá para andar", b:`<ul><li>Ergômetro de braço, cicloergômetro, resistido, caminhada nórdica.</li><li>Cochrane 2020: sem diferença clara para a caminhada supervisionada.</li><li>ACC/AHA: Classe 2a, nível A.</li></ul>`, r:"Jansen et al., Cochrane 2020"},
+ {t:"Mecanismos", f:"Por que anda mais se o ITB não muda?", b:`<ul><li><strong>Endotélio</strong>: cisalhamento → eNOS → óxido nítrico.</li><li><strong>Colaterais e capilares</strong>: arteriogênese e angiogênese.</li><li><strong>Músculo</strong>: mais mitocôndrias, melhor extração de O₂.</li><li><strong>Sistêmico</strong>: economia da marcha e tolerância à dor.</li></ul>`, r:"Ann Vasc Surg 2016 (revisão de mecanismos)"},
+ {t:"Quadro clínico", f:"Isquemia aguda de membro", b:`<ul><li>&lt; 2 semanas, início súbito.</li><li>6 Ps: dor, palidez, ausência de pulso, frio, parestesia, paralisia.</li><li>Emergência de horas. Não é CLTI.</li></ul>`, r:"Gornik et al., ACC/AHA 2024"}
+];
+
+/* ---------- abas ---------- */
+const tabs = {quiz:document.getElementById('tab-quiz'), cards:document.getElementById('tab-cards')};
+function show(which){
+  for (const k in tabs){ tabs[k].setAttribute('aria-selected', k===which); document.getElementById(k).hidden = k!==which; }
+}
+tabs.quiz.onclick = ()=>show('quiz');
+tabs.cards.onclick = ()=>show('cards');
+
+/* ---------- quiz ---------- */
+const shuffle = a => { const b=a.slice(); for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]];} return b; };
+let order, idx, meters, stops, missed;
+const $ = id => document.getElementById(id);
+const maxM = Q.length*STEP;
+$('qt').textContent = Q.length;
+$('maxm').textContent = maxM + ' m';
+document.querySelectorAll('.ticks span').forEach((s,i,all)=>{ if(i<all.length-1) s.textContent = Math.round(maxM*i/(all.length-1)) + ' m'; });
+
+function startQuiz(){
+  order = shuffle(Q).map(q=>{ const opts = shuffle(q.o.map((txt,i)=>({txt, ok:i===q.a}))); return {...q, opts}; });
+  idx=0; meters=0; stops=0; missed=[];
+  $('trackbox').hidden=false;
+  renderQ();
+}
+function updateTrack(){
+  $('meters').textContent = meters; $('stops').textContent = stops;
+  $('bar').style.width = (meters/maxM*100)+'%';
+  $('qn').textContent = Math.min(idx+1, order.length);
+}
+function renderQ(){
+  updateTrack();
+  const q = order[idx];
+  const box = $('qbox');
+  box.innerHTML = `<div class="qcard"><div class="qtopic">${q.t}</div><div class="qtext">${q.q}</div><div class="opts">${q.opts.map((o,i)=>`<button class="opt" data-i="${i}"><span class="k">${'ABCD'[i]}</span><span>${o.txt}</span></button>`).join('')}</div><div id="fbslot"></div></div>`;
+  box.querySelectorAll('.opt').forEach(b=>b.onclick=()=>answer(+b.dataset.i));
+}
+function answer(i){
+  const q = order[idx], btns=[...document.querySelectorAll('.opt')];
+  btns.forEach((b,j)=>{ b.disabled=true; if(q.opts[j].ok) b.classList.add('right'); else if(j===i) b.classList.add('wrong'); else b.classList.add('dim'); });
+  const ok = q.opts[i].ok;
+  if(ok) meters+=STEP; else { stops++; missed.push(q); }
+  updateTrack();
+  const last = idx===order.length-1;
+  $('fbslot').innerHTML = `<div class="fb ${ok?'':'no'}" role="status"><strong>${ok?'Isso! +'+STEP+' m caminhados':'Parada por dor. Bora entender:'}</strong><p>${q.e}</p><div class="ref">Referência: <b>${q.r}</b></div></div><div class="row"><button class="btn" id="go">${last?'Ver meu resultado':'Próxima questão'}</button></div>`;
+  $('go').onclick = ()=>{ if(last) finish(); else { idx++; renderQ(); window.scrollTo({top:0,behavior:'smooth'}); } };
+  $('go').focus({preventScroll:true});
+}
+function finish(){
+  idx = order.length; updateTrack();
+  const right = order.length - missed.length;
+  let best = 0; try{ best = +localStorage.getItem('claud_best')||0; if(meters>best) localStorage.setItem('claud_best', meters); }catch(e){}
+  const verdict = right===order.length ? 'Sem claudicar do início ao fim. Pronto para a prova.' :
+                  right/order.length>=.75 ? 'Ótima marcha. Revise as paradas abaixo.' :
+                  right/order.length>=.5 ? 'Caminhou bem, mas ainda claudica em alguns pontos.' :
+                  'Hora de treinar: revise os cartões e tente de novo.';
+  $('qbox').innerHTML = `<div class="qcard result"><div class="qtopic">Distância máxima de caminhada</div><div class="big">${meters} m</div><div style="color:var(--muted)">${verdict}</div>
+  <div class="stats"><div class="stat"><b>${right}/${order.length}</b><span>acertos</span></div><div class="stat"><b>${stops}</b><span>paradas por dor</span></div><div class="stat"><b>${Math.max(best,meters)} m</b><span>seu recorde</span></div></div>
+  ${missed.length?`<div class="review"><h3>Onde você parou</h3><ul>${missed.map(q=>`<li><strong>${q.q}</strong><br>${q.opts.find(o=>o.ok).txt}<div class="ref">Referência: <b>${q.r}</b></div></li>`).join('')}</ul></div>`:''}
+  <div class="row"><button class="btn ghost" id="tocards">Ir aos cartões</button><button class="btn" id="again">Caminhar de novo</button></div></div>`;
+  $('again').onclick = ()=>{ startQuiz(); window.scrollTo({top:0}); };
+  $('tocards').onclick = ()=>show('cards');
+}
+startQuiz();
+
+/* ---------- cartões ---------- */
+let marked = new Set();
+try{ marked = new Set(JSON.parse(localStorage.getItem('claud_marked')||'[]')); }catch(e){}
+const saveMarks = ()=>{ try{ localStorage.setItem('claud_marked', JSON.stringify([...marked])); }catch(e){} };
+const topics = ['Todos', ...new Set(CARDS.map(c=>c.t)), 'Revisar'];
+let filter='Todos', deck=[], ci=0;
+const card=$('card');
+function buildFilters(){
+  $('filters').innerHTML = topics.map(t=>`<button class="chip" aria-pressed="${t===filter}" data-t="${t}">${t}${t==='Revisar'?' ('+marked.size+')':''}</button>`).join('');
+  $('filters').querySelectorAll('.chip').forEach(b=>b.onclick=()=>{ filter=b.dataset.t; ci=0; buildDeck(); });
+}
+function buildDeck(){
+  deck = CARDS.map((c,i)=>({...c,i})).filter(c=> filter==='Todos' || (filter==='Revisar'? marked.has(c.i) : c.t===filter));
+  buildFilters(); renderCard();
+}
+function renderCard(){
+  card.classList.remove('flip');
+  if(!deck.length){
+    $('front').innerHTML = `<div class="qtopic">Nada aqui ainda</div><div class="term" style="font-size:1.3rem">Marque cartões com "Revisar" para estudá-los depois.</div>`;
+    $('back').innerHTML=''; $('ccount').textContent='0 cartões'; $('cmark').innerHTML=''; return;
+  }
+  const c = deck[ci];
+  $('front').innerHTML = `<div class="qtopic">${c.t}</div><div class="term">${c.f}</div><div class="hint">Toque para virar</div>`;
+  $('back').innerHTML = `${c.b}<div class="ref">Referência: <b>${c.r}</b></div>`;
+  $('ccount').textContent = `Cartão ${ci+1} de ${deck.length}`;
+  $('cmark').innerHTML = marked.has(c.i)?'<span class="pill rev">Para revisar</span>':'<span class="pill">Firme</span>';
+  $('mark').textContent = marked.has(c.i)?'Já sei':'Revisar';
+  $('prev').disabled = ci===0; $('next').disabled = ci===deck.length-1;
+}
+const flip = ()=>{ if(deck.length) card.classList.toggle('flip'); };
+card.onclick = flip;
+card.onkeydown = e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); flip(); } };
+$('prev').onclick=()=>{ if(ci>0){ci--;renderCard();} };
+$('next').onclick=()=>{ if(ci<deck.length-1){ci++;renderCard();} };
+$('mark').onclick=()=>{ if(!deck.length) return; const c=deck[ci]; marked.has(c.i)?marked.delete(c.i):marked.add(c.i); saveMarks();
+  if(filter==='Revisar'){ buildDeck(); ci=Math.min(ci,Math.max(deck.length-1,0)); renderCard(); } else { buildFilters(); renderCard(); } };
+let sx=null;
+card.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;},{passive:true});
+card.addEventListener('touchend',e=>{ if(sx===null) return; const dx=e.changedTouches[0].clientX-sx; sx=null;
+  if(Math.abs(dx)>60){ e.preventDefault(); if(dx<0) $('next').click(); else $('prev').click(); } });
+buildDeck();
+</script>
+
+</body>
+</html>
